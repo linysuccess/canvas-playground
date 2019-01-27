@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>canvas图形平移演示</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <style>
+        html,body,canvas {
+            margin: 0;
+            padding: 0;
+            border: none;
+            overflow: hidden;
+        }
+        html,body {
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+<canvas id="Playground" width="100%" height="100%"></canvas>
+<script src="easing.js"></script>
+<script>
+    var time = new Date().getTime();
+    var hold = 200*9;
+
+    function Q(theId) { return document.getElementById(theId); }
+
+    function Rect(_ctx,_x,_y,_w,_h,_c) {
+        var color = _c;
+        var ctx = _ctx;
+        var x=_x, y=_y,w=_w,h=_h;
+        this.draw = function() {
+            ctx.fillStyle = color;
+            ctx.fillRect(x,y,w,h);
+            return this;
+        }
+        this.clear = function() {
+            ctx.clearRect(x-1,y-1,w+2,h+2);
+            return this;
+        }
+        this.move = function(stepX,stepY) {
+            this.clear();
+            x += stepX;
+            y += stepY;
+            this.draw();
+            return this;
+        }
+        this.translate = function(alterX,alterY, duration, callback) {
+            var beginTime = new Date().getTime();
+            var self = this;
+            var lastMx = 0;
+            var lastMy = 0;
+            !(function frame() {
+                var elapse = new Date().getTime() - beginTime;
+                if(elapse<duration) {
+                    var tx = EASING.ease(elapse,0,alterX,duration);
+                    var ty = EASING.ease(elapse,0,alterY,duration);
+                    if(tx>=1 || ty>=1) {
+                        self.move(tx-lastMx,ty-lastMy);
+                        lastMx = tx;
+                        lastMy = ty;
+                    }
+                    var curTime = new Date().getTime();
+                    if(curTime-time<hold) {
+                        RAF(frame);
+                    }
+                } else {
+                    self.move(alterX-lastMx,alterY-lastMy);
+                    callback && callback();
+                }
+            })();
+        }
+    }
+
+
+    var RAF = requestAnimationFrame;
+
+    var cvs = Q('Playground');
+    cvs.width = window.innerWidth;
+    cvs.height = window.innerHeight;
+    var ctx = cvs.getContext('2d');
+    ctx.fillStyle = '#0ff';
+
+    function randomNum(min,max) {
+        return min + parseInt(Math.random()*(max-min));
+    }
+
+    function makeRect(x,y) {
+        var r1 = randomNum(50,240);
+        var r2 = randomNum(50,240);
+        var r3 = randomNum(50,240);
+        var color = 'rgb('+r1+','+r2+','+r3+')';
+        return new Rect(ctx,x,y,100,100,color).draw();
+    }
+
+    var rect = makeRect(20,20);
+    var rect2 = makeRect(20,220);
+    var rect3 = makeRect(220,420);
+    rect.translate(200,100,1000, function() {
+//        rect2.translate(0,100,500,function() {
+            rect3.translate(-100,100,1000,null);
+//        });
+    });
+    rect2.translate(0,100,600,null);
+
+</script>
+</body>
+</html>

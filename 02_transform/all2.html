@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>canvas图形旋转演示</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <style>
+        html,body,canvas {
+            margin: 0;
+            padding: 0;
+            border: none;
+            overflow: hidden;
+        }
+        html,body {
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+<canvas id="Playground" width="100%" height="100%"></canvas>
+<script src="easing.js"></script>
+<script>
+    function Q(theId) { return document.getElementById(theId); }
+
+    function Rect(_ctx,_x,_y,_w,_h,_c) {
+        var color = _c;
+        var ctx = _ctx;
+        var x=_x, y=_y,w=_w,h=_h;
+        var _rad = 0;
+        this.draw = function() {
+            ctx.fillStyle = color;
+            ctx.fillRect(x,y,w,h);
+            return this;
+        }
+        this.clear = function() {
+            if(_rad!=0) {
+                //旋转时若有缩放和平移,应先clear一次
+                ctx.clearRect(x-1,y-1,w+2,h+2);
+                ctx.save();
+                ctx.translate(x+w/2,y+h/2);
+                ctx.rotate(_rad*Math.PI/180);
+                ctx.translate(-x-w/2,-y-h/2);
+                ctx.clearRect(x-1,y-1,w+2,h+2);
+                ctx.restore();
+            } else {
+                ctx.clearRect(x-1,y-1,w+2,h+2);
+            }
+            return this;
+        }
+        this.move = function(stepX,stepY) {
+            this.clear();
+            x += stepX;
+            y += stepY;
+            this.draw();
+            return this;
+        }
+        this.rotateTo = function(angle) {
+            this.clear();
+            _rad = angle;
+            ctx.save();
+            ctx.translate(x+w/2,y+h/2);
+            ctx.rotate(angle*Math.PI/180);
+            ctx.translate(-x-w/2,-y-h/2);
+            ctx.fillStyle = color;
+            ctx.fillRect(x,y,w,h);
+            ctx.restore();
+        }
+        this.scaleTo = function (toW,toH) {
+            this.clear();
+            var centerX = x + w/2;
+            var centerY = y + h/2;
+            x = centerX - toW/2;
+            y = centerY - toH/2;
+            w = toW;
+            h = toH;
+            this.draw();
+        }
+        this.translate = function(alterX,alterY, duration, callback) {
+            var beginTime = new Date().getTime();
+            var self = this;
+            var lastMx = 0;
+            var lastMy = 0;
+            !(function frame() {
+                var elapse = new Date().getTime() - beginTime;
+                if(elapse<duration) {
+                    var tx = EASING.ease(elapse,0,alterX,duration);
+                    var ty = EASING.ease(elapse,0,alterY,duration);
+                    if(tx>=1 || ty>=1) {
+                        self.move(tx-lastMx,ty-lastMy);
+                        lastMx = tx;
+                        lastMy = ty;
+                    }
+                    RAF(frame);
+                } else {
+                    self.move(alterX-lastMx,alterY-lastMy);
+                    callback && callback();
+                }
+            })();
+        }
+        this.rotate = function(angle,duration,callback) {
+            var self = this;
+            var beginTime = new Date().getTime();
+            var lastA = 0;
+            !(function frame() {
+                var elapse = new Date().getTime() - beginTime;
+                if(elapse<duration) {
+                    var toAngle = EASING.ease(elapse,0,angle,duration);
+                    self.rotateTo(toAngle);
+                    lastA = toAngle;
+                    RAF(frame);
+                } else {
+                    self.rotateTo(angle);
+                    _rad = 0;
+                    callback && callback();
+                }
+            })();
+        }
+
+        this.scale = function(sx,sy,duration,callback) {
+            var self = this;
+            var beginTime = new Date().getTime();
+            var fromW = w;
+            var fromH = h;
+            var toW = w*sx;
+            var toH = h*sy;
+            !(function frame() {
+                var elapse = new Date().getTime() - beginTime;
+                if(elapse<duration) {
+                    var _ww = fromW + EASING.ease(elapse,fromW,toW,duration);
+                    var _hh = fromH + EASING.ease(elapse,fromH,toH,duration);
+                    self.scaleTo(_ww,_hh);
+                    RAF(frame);
+                } else {
+                    self.scaleTo(toW,toH);
+                    callback && callback();
+                }
+            })();
+        }
+
+        //平移/旋转/缩放/拉伸(错切)综合性方法
+        this.setTransform = function(mX,mY,skewX,skewY,scaleX,scaleY,duration,callback) {
+            var self = this;
+            var beginTime = new Date().getTime();
+            var bMx = mX!=0;
+            var bMy = mY!=0;
+            var bScaleX = scaleX!=1;
+            var bScaleY = scaleY!=1;
+            var bSkewX = skewX!=0;
+            var bSkewY = skewY!=0;
+
+            var _scaleX = 1;
+            var _scaleY = 1;
+            var _skewX = 0;
+            var _skewY = 0;
+            var _mX = 0;
+            var _mY = 0;
+
+            !(function frame() {
+                var elapse = new Date().getTime() - beginTime;
+                if(elapse<duration) {
+                    if(bScaleX) {
+                        _scaleX = 1+ EASING.ease(elapse,1,scaleX,duration);
+                    }
+                    if(bScaleY) {
+                        _scaleY = 1+ EASING.ease(elapse,1,scaleY,duration);
+                    }
+
+
+                    if(bSkewX) {
+                        _skewX = EASING.ease(elapse,0,skewX,duration);
+                    }
+                    if(bSkewY) {
+                        _skewY = EASING.ease(elapse,0,skewY,duration);
+                    }
+
+                    if(bMx) {
+                        _mX = EASING.ease(elapse,0,mX,duration);
+                    }
+                    if(bMy) {
+                        _mY = EASING.ease(elapse,0,mY,duration);
+                    }
+                    self.clear();
+                    ctx.setTransform(_scaleX,_skewX,_skewY,_scaleY,_mX,_mY);
+                    self.draw();
+
+                    RAF(frame);
+                } else {
+                    self.clear();
+                    ctx.setTransform(scaleX,skewX,skewY,scaleY,mX,mY);
+                    self.draw();
+                    callback && callback();
+                }
+            })();
+        }
+
+    }
+
+
+    var RAF = requestAnimationFrame;
+    var cvs = Q('Playground');
+    cvs.width = window.innerWidth;
+    cvs.height = window.innerHeight;
+    var ctx = cvs.getContext('2d');
+    ctx.fillStyle = '#0ff';
+
+    function randomNum(min,max) {
+        return min + parseInt(Math.random()*(max-min));
+    }
+
+    function makeRect(x,y) {
+        var r1 = randomNum(50,240);
+        var r2 = randomNum(50,240);
+        var r3 = randomNum(50,240);
+        var color = 'rgb('+r1+','+r2+','+r3+')';
+        return new Rect(ctx,x,y,100,100,color).draw();
+    }
+
+    var rect = makeRect(50,50);
+    rect.setTransform(0,0,1,0,1.5,1.5,1000, null);
+    rect.rotate(270,1000,null);
+
+
+</script>
+</body>
+</html>
